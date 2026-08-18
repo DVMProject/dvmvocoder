@@ -1,0 +1,71 @@
+name: Android CMake Build
+
+on:
+  # Allow manual call
+  workflow_dispatch:
+  # Allow use in other workflows (such as release)
+  workflow_call:
+    inputs:
+      release:
+        required: false
+        type: boolean
+        default: false
+      release_tag:
+        required: false
+        type: string
+  # Run on push to main
+  push:
+    branches:
+    - main
+  # Run on PR to main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86_64]
+        include:
+          - abi: arm64-v8a
+            build_dir: build-arm64
+          - abi: x86_64
+            build_dir: build-x86_64
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Configure CMake
+      run: >
+        cmake
+        -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake
+        -DANDROID_ABI=${{ matrix.abi }}
+        -DANDROID_PLATFORM=android-26
+        -DCMAKE_BUILD_TYPE=Release
+        -B ${{ matrix.build_dir }}
+        -S ${{ github.workspace }}
+
+    - name: Build
+      run: cmake --build ${{ matrix.build_dir }}
+
+    # Upload non-release .SO to artifacts
+    - name: Upload Android SO
+      if: ${{ !(inputs.release) }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: libvocoder-android-${{ matrix.abi }}
+        path: ${{ matrix.build_dir }}/libvocoder.so
+
+    # (Release-Only) Upload release android .tar.gz to release
+    - name: Upload Android Release SO
+      if: ${{ inputs.release }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cd ${{ matrix.build_dir }}
+        tar -czvf ./libvocoder-${{ inputs.release_tag }}-android-${{ matrix.abi }}.tar.gz ./libvocoder.so
+        gh release upload ${{ inputs.release_tag }} ./libvocoder-${{ inputs.release_tag }}-android-${{ matrix.abi }}.tar.gz
