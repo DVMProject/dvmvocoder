@@ -73,7 +73,8 @@ namespace vocoder {
     MBEDecoder::MBEDecoder(MBE_DECODER_MODE mode) :
         m_mbelibParms(NULL),
         m_mbeMode(mode),
-        m_gainAdjust(1.0f)
+        m_gainAdjust(1.0f),
+        m_autoGain(false)
     {
         m_mbelibParms = new mbelibParms();
         mbe_initMbeParms(m_mbelibParms->m_cur_mp, m_mbelibParms->m_prev_mp, m_mbelibParms->m_prev_mp_enhanced);
